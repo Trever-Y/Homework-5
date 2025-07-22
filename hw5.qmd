@@ -76,3 +76,38 @@ ggplot(new_heart, aes(x = MaxHR, y = Age, color = Heart_Disease)) +
 
 We can see that the slopes are different. An additive model would assume their slopes to be the same. Therefore, to account for different slopes, we need to use an interaction model.
 
+## Task 4: Testing and Training
+
+```{r}
+set.seed(101)
+split <- initial_split(new_heart, prop = 0.8)
+train <- training(split)
+test <- testing(split)
+```
+
+## Task 5: OLS and LASSO
+
+### 1. Interaction model
+
+```{r}
+
+```
+
+### 2. RMSE
+
+```{r}
+
+```
+
+### 3. Performance
+
+```{r}
+
+```
+
+
+## Task 6: Logistic Regression
+
+```{r}
+
+```
