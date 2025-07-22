@@ -17,11 +17,11 @@ editor: visual
 
 -   **What is meant by a general linear model?**
 
-    A general linear model (GLM) expresses a continuous response variable (Y) as a linear combination of predictors: \[ Y = \beta\_0 + \beta\_1 X_1 + \cdots + \beta\_p X_p + \varepsilon, \] where (\varepsilon) is assumed to be normally distributed with constant variance. It encompasses methods like ANOVA, ANCOVA, and multiple linear regression.
+    A general linear model (GLM) expresses a continuous response variable (Y) as a linear combination of predictors where epsilon is assumed to be normally distributed with constant variance. It encompasses methods like ANOVA, ANCOVA, and multiple linear regression.
 
 -   **When fitting a multiple linear regression model, what does adding an interaction term do? That is, what does it allow the model to do differently as compared to when it is not included in the model?**
 
-    An interaction term (e.g., (X_1 \times X_2)) allows the effect of one predictor on the response to change depending on the level of the other predictor. Without interactions the model assumes additive effects; with interactions it can capture non‑additive relationships, where the slope for (X_1) varies by the value of (X_2).
+    An interaction term allows the effect of one predictor on the response to change depending on the level of the other predictor. Without interactions the model assumes additive effects; with interactions it can capture non‑additive relationships, where the slope for (X_1) varies by the value of (X_2).
 
 -   **Why do we split our data into a training and test set?**
 
@@ -31,22 +31,23 @@ editor: visual
 
 ### Packages and Data
 
-```{r load-packages, message=false, warning=false}
+```{r load-packages, message = FALSE, warning = FALSE}
 library(tidyverse)
 library(tidymodels)
 library(caret)
 library(yardstick)
+library(glmnet)
 
 Heart_data <- read_csv(
   "heart.csv") 
 summary(Heart_data)
 ```
 
-### 1
+### Question 1:
 
 Heart Disease is treated as a quantitative variable which does not make sense. Conceptually, Heart Disease is a categorical variable since 0 means no heart disease and 1 means presence of heart disease. A decimal like 0.5 wouldn't fall into either category. A person either has or does not have heart disease (1 or 0).
 
-### 2
+### Question 2:
 
 ```{r}
 new_heart <- Heart_data %>%
@@ -99,20 +100,74 @@ summary(ols_mlr)
 ```{r}
 predictions <- predict(ols_mlr, newdata = test)
 residuals <- test$Age - predictions
-rmse <- sqrt(mean(residuals^2))
-rmse
+OLS_rmse <- sqrt(mean(residuals^2))
+OLS_rmse
 ```
 
 ### 3. Performance
 
 ```{r}
 LASSO_recipe <- recipe(Age ~ MaxHR + Heart_Disease, data = train) %>%
-  step_dummy(all_nominal_predictors()) %>%   # Convert Heart_Disease to dummy vars
+  step_dummy(Heart_Disease) %>%
   step_normalize(all_predictors()) %>%       # Standardize all predictors
   step_interact( ~ MaxHR:starts_with("Heart_Disease_") )  # Add interaction terms
 LASSO_recipe
 ```
 
+### 4. Spec, Grid, Results
+
+```{r}
+LASSO_spec <- linear_reg(penalty = tune(), mixture = 1) %>%
+  set_engine("glmnet")
+cv_folds <- vfold_cv(train, v = 10)
+
+LASSO_wf <- workflow() %>%
+  add_model(LASSO_spec) %>%
+  add_recipe(LASSO_recipe)
+
+lasso_grid <- grid_regular(penalty(), levels = 200)
+
+LASSO_results <- tune_grid(
+  LASSO_wf,
+  resamples = cv_folds,
+  grid = lasso_grid,
+  metrics = metric_set(rmse)
+)
+
+best_LASSO <- select_best(LASSO_results, metric = "rmse")
+best_LASSO
+
+final_lasso_wf <- finalize_workflow(LASSO_wf, best_LASSO)
+final_lasso_fit <- fit(final_lasso_wf, data = train)
+tidy(final_lasso_fit)
+```
+
+### 5. RMSE
+
+I would expect the RMSE to be very similar since the LASSO applied very little penalty (1e-10) and the same variables were used. The scale is different (ie our intercept is only 54) since we normalized the variables, but that won't change the RMSE.
+
+```{r}
+# Get LASSO predictions
+lasso_preds <- predict(final_lasso_fit, new_data = test) %>%
+  bind_cols(test)
+
+# Compute RMSE
+rmse_lasso <- rmse(lasso_preds, truth = Age, estimate = .pred)
+rmse_lasso
+```
+
+### 6. Compare RMSE
+
+We can see that both models have similar RMSE.
+
+```{r}
+rmse_lasso
+OLS_rmse
+```
+
+### 7. Why are they same even though we have different coefficient?
+
+As stated, we standardized our variables in the LASSO model, which makes the coefficients look different. However, we use the same variables and interactions, so they are making very similar predictions. Thus, our RMSE is nearly the same.
 
 ## Task 6: Logistic Regression
 
