@@ -43,11 +43,11 @@ Heart_data <- read_csv(
 summary(Heart_data)
 ```
 
-### Question 1:
+### Question 1: Variable Type
 
 Heart Disease is treated as a quantitative variable which does not make sense. Conceptually, Heart Disease is a categorical variable since 0 means no heart disease and 1 means presence of heart disease. A decimal like 0.5 wouldn't fall into either category. A person either has or does not have heart disease (1 or 0).
 
-### Question 2:
+### Question 2: Create New Data
 
 ```{r}
 new_heart <- Heart_data %>%
@@ -57,7 +57,7 @@ new_heart <- Heart_data %>%
 
 ## Task 3: EDA
 
-### 1. Plot to check for interaction
+### Question 1: Plot to check for interaction
 
 ```{r}
 ggplot(new_heart, aes(x = MaxHR, y = Age, color = Heart_Disease)) +
@@ -73,7 +73,7 @@ ggplot(new_heart, aes(x = MaxHR, y = Age, color = Heart_Disease)) +
   theme_minimal()
 ```
 
-### 2. Conclusion based on visual evidence
+### Question 2: Conclusion based on visual evidence
 
 We can see that the slopes are different. An additive model would assume their slopes to be the same. Therefore, to account for different slopes, we need to use an interaction model.
 
@@ -88,14 +88,14 @@ test <- testing(split)
 
 ## Task 5: OLS and LASSO
 
-### 1. Interaction model
+### Question 1: Interaction model
 
 ```{r}
 ols_mlr <- lm(Age ~ MaxHR * Heart_Disease, data = train)
 summary(ols_mlr)
 ```
 
-### 2. RMSE
+### Question 2: RMSE
 
 ```{r}
 predictions <- predict(ols_mlr, newdata = test)
@@ -104,7 +104,7 @@ OLS_rmse <- sqrt(mean(residuals^2))
 OLS_rmse
 ```
 
-### 3. Performance
+### Question 3: Performance
 
 ```{r}
 LASSO_recipe <- recipe(Age ~ MaxHR + Heart_Disease, data = train) %>%
@@ -114,7 +114,7 @@ LASSO_recipe <- recipe(Age ~ MaxHR + Heart_Disease, data = train) %>%
 LASSO_recipe
 ```
 
-### 4. Spec, Grid, Results
+### Question 4: Spec, Grid, Results
 
 ```{r}
 LASSO_spec <- linear_reg(penalty = tune(), mixture = 1) %>%
@@ -142,7 +142,7 @@ final_lasso_fit <- fit(final_lasso_wf, data = train)
 tidy(final_lasso_fit)
 ```
 
-### 5. RMSE
+### Question 5: RMSE
 
 I would expect the RMSE to be very similar since the LASSO applied very little penalty (1e-10) and the same variables were used. The scale is different (ie our intercept is only 54) since we normalized the variables, but that won't change the RMSE.
 
@@ -156,7 +156,7 @@ rmse_lasso <- rmse(lasso_preds, truth = Age, estimate = .pred)
 rmse_lasso
 ```
 
-### 6. Compare RMSE
+### Question 6: Compare RMSE
 
 We can see that both models have similar RMSE.
 
@@ -165,12 +165,66 @@ rmse_lasso
 OLS_rmse
 ```
 
-### 7. Why are they same even though we have different coefficient?
+### Question 7: Why are they same even though we have different coefficient?
 
 As stated, we standardized our variables in the LASSO model, which makes the coefficients look different. However, we use the same variables and interactions, so they are making very similar predictions. Thus, our RMSE is nearly the same.
 
 ## Task 6: Logistic Regression
 
-```{r}
+### Question 1: Fit 2 models and Identify Best models
 
+```{r}
+ctrl <- trainControl(method = "repeatedcv", number = 10, repeats = 3, classProbs = TRUE, summaryFunction = twoClassSummary)
+
+# Model 1
+logit_model1 <- train(
+  Heart_Disease ~ MaxHR + Age + Sex + Cholesterol,
+  data = train,
+  method = "glm",
+  family = "binomial",
+  trControl = ctrl,
+  metric = "ROC"
+)
+
+# Model 2
+logit_model2 <- train(
+  Heart_Disease ~ Age + MaxHR + Cholesterol + RestingBP + Sex + ChestPainType,
+  data = train,
+  method = "glm",
+  family = "binomial",
+  trControl = ctrl,
+  metric = "ROC"
+)
+
+#ID best model
+logit_model1$results
+logit_model2$results
+
+#provide summary of best model
+summary(logit_model2$finalModel) 
 ```
+
+Model 2 is our best model with an ROC of .848 (vs .771). The sensitivy and specificity standard deviation is also lower among folds for model 2, which indicates consistency. Model 2 also has higher sensitivity and specificity, which I will define in question 3.
+
+### Question 2: Check on Test data with confusion matrix
+
+```{r}
+logit_preds <- predict(logit_model2, newdata = test)
+conf_matrix <- confusionMatrix(logit_preds, test$Heart_Disease)
+conf_matrix
+```
+
+### Question 3: ID Values of Sensitivity etc.
+
+```{r}
+conf_matrix$byClass["Sensitivity"]
+conf_matrix$byClass["Specificity"]
+```
+
+Sensitivity: Proportion of people with heart disease that our model correctly identifies 
+
+- Our Model can correctly identify 76.6% of people with heart disease (23.4% false negative)
+
+## Specificity: proportion of people without heart disease that our model correctly identifies
+
+- Our model can correctly identify 77.8% of people without heart disease (22.2% false positive)
