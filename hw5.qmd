@@ -6,6 +6,7 @@ editor: visual
 ---
 
 ## Task 1: Conceptual Questions
+
 -   **What is the purpose of using cross-validation when fitting a random forest model?**
 
     Cross‑validation is used to estimate how well the random forest will perform on unseen data by repeatedly splitting the data into “folds,” training on some folds and validating on the others. This helps guard against overfitting and provides a more reliable measure of out‑of‑sample predictive accuracy.
@@ -28,45 +29,50 @@ editor: visual
 
 ## Task 2: Data Prep
 
+### Packages and Data
 
-```{r}
+```{r load-packages, message=false, warning=false}
+library(tidyverse)
+library(tidymodels)
+library(caret)
+library(yardstick)
 
+Heart_data <- read_csv(
+  "heart.csv") 
+summary(Heart_data)
 ```
 
+### 1
 
+Heart Disease is treated as a quantitative variable which does not make sense. Conceptually, Heart Disease is a categorical variable since 0 means no heart disease and 1 means presence of heart disease. A decimal like 0.5 wouldn't fall into either category. A person either has or does not have heart disease (1 or 0).
 
+### 2
+
+```{r}
+new_heart <- Heart_data %>%
+  mutate(Heart_Disease = factor(HeartDisease, levels = c(0, 1), labels = c("No", "Yes"))) %>%
+  select(-ST_Slope, -HeartDisease)
+```
 
 ## Task 3: EDA
 
+### 1. Plot to check for interaction
 
 ```{r}
-
+ggplot(new_heart, aes(x = MaxHR, y = Age, color = Heart_Disease)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_viridis_d(option = "D") +
+  labs(
+    title = "Age vs Max Heart Rate by Heart Disease Status",
+    x = "Max Heart Rate",
+    y = "Age",
+    color = "Heart Disease"
+  ) +
+  theme_minimal()
 ```
 
+### 2. Conclusion based on visual evidence
 
-
-## Task 4: Testing and Training
-
-
-```{r}
-
-```
-
-
-## Task 5: OLS and LASSO
-
-
-```{r}
-
-```
-
-
-
-
-## Task 6: Logistic Regression
-
-
-```{r}
-
-```
+We can see that the slopes are different. An additive model would assume their slopes to be the same. Therefore, to account for different slopes, we need to use an interaction model.
 
