@@ -221,10 +221,10 @@ conf_matrix$byClass["Sensitivity"]
 conf_matrix$byClass["Specificity"]
 ```
 
-Sensitivity: Proportion of people with heart disease that our model correctly identifies 
+Sensitivity: Proportion of people with heart disease that our model correctly identifies
 
-- Our Model can correctly identify 76.6% of people with heart disease (23.4% false negative)
+-   Our Model can correctly identify 76.6% of people with heart disease (23.4% false negative)
 
-## Specificity: proportion of people without heart disease that our model correctly identifies
+Specificity: proportion of people without heart disease that our model correctly identifies
 
-- Our model can correctly identify 77.8% of people without heart disease (22.2% false positive)
+-   Our model can correctly identify 77.8% of people without heart disease (22.2% false positive)
