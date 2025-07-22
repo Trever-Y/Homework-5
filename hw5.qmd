@@ -90,19 +90,27 @@ test <- testing(split)
 ### 1. Interaction model
 
 ```{r}
-
+ols_mlr <- lm(Age ~ MaxHR * Heart_Disease, data = train)
+summary(ols_mlr)
 ```
 
 ### 2. RMSE
 
 ```{r}
-
+predictions <- predict(ols_mlr, newdata = test)
+residuals <- test$Age - predictions
+rmse <- sqrt(mean(residuals^2))
+rmse
 ```
 
 ### 3. Performance
 
 ```{r}
-
+LASSO_recipe <- recipe(Age ~ MaxHR + Heart_Disease, data = train) %>%
+  step_dummy(all_nominal_predictors()) %>%   # Convert Heart_Disease to dummy vars
+  step_normalize(all_predictors()) %>%       # Standardize all predictors
+  step_interact( ~ MaxHR:starts_with("Heart_Disease_") )  # Add interaction terms
+LASSO_recipe
 ```
 
 
