@@ -7,21 +7,31 @@ editor: visual
 
 ## Task 1: Conceptual Questions
 
+### Question 1:
+
 -   **What is the purpose of using cross-validation when fitting a random forest model?**
 
-    Cross‑validation is used to estimate how well the random forest will perform on unseen data by repeatedly splitting the data into “folds,” training on some folds and validating on the others. This helps guard against overfitting and provides a more reliable measure of out‑of‑sample predictive accuracy.
+    Cross‑validation is used to estimate how well the random forest will perform on unseen data by repeatedly splitting the data into “folds,” training on some folds and validating on the other(s). This helps guard against overfitting and provides a more reliable measure of out‑of‑sample predictive accuracy.
+    
+### Question 2:    
 
 -   **Describe the bagged tree algorithm.**
 
-    Bagged trees (bootstrap aggregating) build many decision trees on different bootstrap samples of the training data and then average (for regression) or majority‑vote (for classification) their predictions. By aggregating across models trained on varied subsets, bagging reduces variance and improves stability compared to a single decision tree.
+    Bagged trees build many decision trees on different bootstrap samples of the training data and then average their predictions. By aggregating across models trained on varied subsets, bagging reduces variance and improves stability compared to a single decision tree.
+
+### Question 3:
 
 -   **What is meant by a general linear model?**
 
-    A general linear model (GLM) expresses a continuous response variable (Y) as a linear combination of predictors where epsilon is assumed to be normally distributed with constant variance. It encompasses methods like ANOVA, ANCOVA, and multiple linear regression.
+    A general linear model expresses a continuous response variable as a linear combination of predictors where the errors are assumed to be normally distributed with constant variance. It encompasses methods like ANOVA, ANCOVA, and multiple linear regression.
+
+### Question 4:
 
 -   **When fitting a multiple linear regression model, what does adding an interaction term do? That is, what does it allow the model to do differently as compared to when it is not included in the model?**
 
-    An interaction term allows the effect of one predictor on the response to change depending on the level of the other predictor. Without interactions the model assumes additive effects; with interactions it can capture non‑additive relationships, where the slope for (X_1) varies by the value of (X_2).
+    An interaction term allows the effect of one predictor on the response to change depending on the level of the other predictor. Without interactions the model assumes additive effects, but with interactions, it can capture non‑additive relationships, where the slope for one variable varies by the value of another.
+
+### Question 5:
 
 -   **Why do we split our data into a training and test set?**
 
@@ -38,6 +48,7 @@ library(caret)
 library(yardstick)
 library(glmnet)
 
+#Read in data and print summary
 Heart_data <- read_csv(
   "heart.csv") 
 summary(Heart_data)
@@ -50,6 +61,7 @@ Heart Disease is treated as a quantitative variable which does not make sense. C
 ### Question 2: Create New Data
 
 ```{r}
+#Create new heart data
 new_heart <- Heart_data %>%
   mutate(Heart_Disease = factor(HeartDisease, levels = c(0, 1), labels = c("No", "Yes"))) %>%
   select(-ST_Slope, -HeartDisease)
@@ -60,10 +72,11 @@ new_heart <- Heart_data %>%
 ### Question 1: Plot to check for interaction
 
 ```{r}
+#plot age vs max heart rate by disease status
 ggplot(new_heart, aes(x = MaxHR, y = Age, color = Heart_Disease)) +
   geom_point(alpha = 0.6) +
   geom_smooth(method = "lm", se = FALSE) +
-  scale_color_viridis_d(option = "D") +
+  scale_color_brewer(palette = "Dark2") +
   labs(
     title = "Age vs Max Heart Rate by Heart Disease Status",
     x = "Max Heart Rate",
@@ -80,6 +93,7 @@ We can see that the slopes are different. An additive model would assume their s
 ## Task 4: Testing and Training
 
 ```{r}
+#set seed for repeat ability and split data into train and test data
 set.seed(101)
 split <- initial_split(new_heart, prop = 0.8)
 train <- training(split)
@@ -91,6 +105,7 @@ test <- testing(split)
 ### Question 1: Interaction model
 
 ```{r}
+#specify model
 ols_mlr <- lm(Age ~ MaxHR * Heart_Disease, data = train)
 summary(ols_mlr)
 ```
@@ -98,6 +113,7 @@ summary(ols_mlr)
 ### Question 2: RMSE
 
 ```{r}
+#calculate RMSE
 predictions <- predict(ols_mlr, newdata = test)
 residuals <- test$Age - predictions
 OLS_rmse <- sqrt(mean(residuals^2))
@@ -107,26 +123,31 @@ OLS_rmse
 ### Question 3: Performance
 
 ```{r}
+#Create Recipe
 LASSO_recipe <- recipe(Age ~ MaxHR + Heart_Disease, data = train) %>%
   step_dummy(Heart_Disease) %>%
-  step_normalize(all_predictors()) %>%       # Standardize all predictors
-  step_interact( ~ MaxHR:starts_with("Heart_Disease_") )  # Add interaction terms
+  step_normalize(all_predictors()) %>% 
+  step_interact( ~ MaxHR:starts_with("Heart_Disease_") ) 
 LASSO_recipe
 ```
 
 ### Question 4: Spec, Grid, Results
 
 ```{r}
+#Create specs and folds
 LASSO_spec <- linear_reg(penalty = tune(), mixture = 1) %>%
   set_engine("glmnet")
 cv_folds <- vfold_cv(train, v = 10)
 
+#Create workflow
 LASSO_wf <- workflow() %>%
   add_model(LASSO_spec) %>%
   add_recipe(LASSO_recipe)
 
+#create grid
 lasso_grid <- grid_regular(penalty(), levels = 200)
 
+#tune
 LASSO_results <- tune_grid(
   LASSO_wf,
   resamples = cv_folds,
@@ -134,9 +155,11 @@ LASSO_results <- tune_grid(
   metrics = metric_set(rmse)
 )
 
+#print best lasso
 best_LASSO <- select_best(LASSO_results, metric = "rmse")
 best_LASSO
 
+#setup and report results from final model
 final_lasso_wf <- finalize_workflow(LASSO_wf, best_LASSO)
 final_lasso_fit <- fit(final_lasso_wf, data = train)
 tidy(final_lasso_fit)
@@ -144,7 +167,7 @@ tidy(final_lasso_fit)
 
 ### Question 5: RMSE
 
-I would expect the RMSE to be very similar since the LASSO applied very little penalty (1e-10) and the same variables were used. The scale is different (ie our intercept is only 54) since we normalized the variables, but that won't change the RMSE.
+I would expect the RMSE to be very similar since the LASSO applied very little penalty (1e-10) and the same variables and interaction were used. The scale is different (ie our intercept is only 54) since we normalized the variables, but that won't change the RMSE.
 
 ```{r}
 # Get LASSO predictions
@@ -174,6 +197,7 @@ As stated, we standardized our variables in the LASSO model, which makes the coe
 ### Question 1: Fit 2 models and Identify Best models
 
 ```{r}
+#specify control
 ctrl <- trainControl(method = "repeatedcv", number = 10, repeats = 3, classProbs = TRUE, summaryFunction = twoClassSummary)
 
 # Model 1
@@ -209,6 +233,7 @@ Model 2 is our best model with an ROC of .848 (vs .771). The sensitivy and speci
 ### Question 2: Check on Test data with confusion matrix
 
 ```{r}
+#Use trained model on test data
 logit_preds <- predict(logit_model2, newdata = test)
 conf_matrix <- confusionMatrix(logit_preds, test$Heart_Disease)
 conf_matrix
